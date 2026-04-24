@@ -38,6 +38,10 @@ function renderAll() {
         ${state.pages.map((page, index) => renderTopicPageHtml(page, index, chapter)).join('')}
     `;
 
+    document.querySelectorAll('.page-body').forEach((body) => {
+        normalizeContentSections(body);
+        normalizeInlineDirection(body);
+    });
     renderPageList();
     typesetPaginateAndCheckOverflow();
 }
@@ -78,6 +82,90 @@ function renderPageList() {
     `).join('');
 }
 
+function normalizeContentSections(contentRoot) {
+    let node = contentRoot.firstChild;
+
+    while (node) {
+        if (node.nodeType !== Node.ELEMENT_NODE) {
+            node = node.nextSibling;
+            continue;
+        }
+
+        const element = node;
+
+        if (element.classList.contains('content-section') || element.closest('.content-section') !== null) {
+            node = element.nextSibling;
+            continue;
+        }
+
+        if (!isHeadingElement(element)) {
+            node = element.nextSibling;
+            continue;
+        }
+
+        const section = document.createElement('section');
+        section.className = 'content-section';
+        contentRoot.insertBefore(section, element);
+
+        let cursor = element;
+        while (cursor) {
+            const next = cursor.nextSibling;
+            const isNewSectionStart =
+                cursor !== element &&
+                cursor.nodeType === Node.ELEMENT_NODE &&
+                (isHeadingElement(cursor) || cursor.classList.contains('content-section'));
+
+            if (isNewSectionStart) {
+                break;
+            }
+
+            section.appendChild(cursor);
+            cursor = next;
+        }
+
+        node = section.nextSibling;
+    }
+}
+
+function normalizeInlineDirection(root) {
+    const skipSelector = 'code, pre, textarea, script, style, mjx-container, .ltr, .bit, .codeword, .arrow, .status-icon';
+
+    const walker = document.createTreeWalker(
+        root,
+        NodeFilter.SHOW_TEXT,
+        {
+            acceptNode(node) {
+                const parent = node.parentElement;
+                if (!parent) {
+                    return NodeFilter.FILTER_REJECT;
+                }
+                if (parent.closest(skipSelector)) {
+                    return NodeFilter.FILTER_REJECT;
+                }
+
+                const text = node.nodeValue || '';
+                if (!text.includes('→')) {
+                    return NodeFilter.FILTER_REJECT;
+                }
+                if (!/[\u0600-\u06FF]/.test(text)) {
+                    return NodeFilter.FILTER_REJECT;
+                }
+
+                return NodeFilter.FILTER_ACCEPT;
+            }
+        }
+    );
+
+    const nodes = [];
+    while (walker.nextNode()) {
+        nodes.push(walker.currentNode);
+    }
+
+    nodes.forEach((node) => {
+        node.nodeValue = node.nodeValue.replaceAll('→', '←');
+    });
+}
+
 function typesetPaginateAndCheckOverflow() {
     const preview = document.getElementById('bookPreview');
 
@@ -103,7 +191,7 @@ function paginateBook() {
     let page = document.querySelector('.topic-page');
     let guard = 0;
 
-    while (page && guard < 500) {
+    while (page && guard < 900) {
         guard += 1;
 
         const body = page.querySelector('.page-body');
@@ -115,11 +203,13 @@ function paginateBook() {
         if (isVerticallyOverflowing(body)) {
             const moved = moveOverflowToContinuation(page);
             if (!moved) {
+                protectTrailingOrphanHeading(page);
                 page = nextTopicPage(page);
             }
             continue;
         }
 
+        protectTrailingOrphanHeading(page);
         page = nextTopicPage(page);
     }
 
@@ -142,18 +232,257 @@ function moveOverflowToContinuation(page) {
     const body = page.querySelector('.page-body');
     const nextPage = getOrCreateContinuationPage(page);
     const nextBody = nextPage.querySelector('.page-body');
-    let moved = 0;
+    let moved = false;
 
-    while (isVerticallyOverflowing(body) && body.childNodes.length > 1) {
-        nextBody.insertBefore(body.lastChild, nextBody.firstChild);
-        moved += 1;
+    while (isVerticallyOverflowing(body)) {
+        const block = getLastLogicalBlock(body);
+        if (!block) {
+            return moved;
+        }
+
+        const blockCount = elementChildren(body).length;
+
+        if (blockCount > 1) {
+            prependElement(nextBody, block);
+            moved = true;
+            continue;
+        }
+
+        if (canFitOnEmptyPage(block, body)) {
+            return moved;
+        }
+
+        if (splitOversizedBlock(block, body, nextBody)) {
+            moved = true;
+            continue;
+        }
+
+        return moved;
     }
 
-    if (isVerticallyOverflowing(body) && body.childNodes.length === 1 && !nextBody.childNodes.length) {
+    protectTrailingOrphanHeading(page);
+    return moved;
+}
+
+function getLastLogicalBlock(root) {
+    const children = elementChildren(root);
+    const prioritySelector = [
+        'section.content-section',
+        '.keep-together',
+        '.exam-box',
+        'table',
+        'blockquote',
+        'ul',
+        'ol',
+        'p'
+    ].join(',');
+
+    for (let index = children.length - 1; index >= 0; index -= 1) {
+        const child = children[index];
+        if (child.matches(prioritySelector) || child.nodeType === Node.ELEMENT_NODE) {
+            return child;
+        }
+    }
+
+    return null;
+}
+
+function splitOversizedBlock(block, overflowRoot, nextBody) {
+    if (block.matches('table')) {
+        return splitTable(block, overflowRoot, nextBody);
+    }
+
+    if (block.matches('ul, ol')) {
+        return splitContainerChildren(block, overflowRoot, nextBody, block.cloneNode(false));
+    }
+
+    if (block.classList.contains('exam-box')) {
+        return splitContainerChildren(block, overflowRoot, nextBody, block.cloneNode(false), '.idea-line');
+    }
+
+    if (block.classList.contains('content-section')) {
+        return splitContentSection(block, overflowRoot, nextBody);
+    }
+
+    if (block.classList.contains('keep-together')) {
+        return splitContainerChildren(block, overflowRoot, nextBody, block.cloneNode(false));
+    }
+
+    return splitContainerChildren(block, overflowRoot, nextBody, block.cloneNode(false));
+}
+
+function splitContentSection(section, overflowRoot, nextBody) {
+    const continuation = section.cloneNode(false);
+    prependElement(nextBody, continuation);
+    let moved = false;
+
+    while (isVerticallyOverflowing(overflowRoot)) {
+        const children = elementChildren(section);
+
+        if (!children.length) {
+            section.remove();
+            removeIfEmpty(continuation);
+            return moved;
+        }
+
+        const last = children[children.length - 1];
+
+        if (children.length <= 2 && startsWithHeading(section) && canSplitElement(last)) {
+            const split = splitChildIntoContinuation(last, overflowRoot, continuation);
+            moved = moved || split;
+            if (!split) {
+                prependElement(continuation, last);
+                moved = true;
+            }
+        } else if (canSplitElement(last) && !canFitOnEmptyPage(last, overflowRoot)) {
+            const split = splitChildIntoContinuation(last, overflowRoot, continuation);
+            moved = moved || split;
+            if (!split) {
+                prependElement(continuation, last);
+                moved = true;
+            }
+        } else {
+            prependElement(continuation, last);
+            moved = true;
+        }
+
+        if (hasOnlyHeading(section)) {
+            moveAllChildren(section, continuation);
+            section.remove();
+            moved = true;
+            break;
+        }
+    }
+
+    removeIfEmpty(continuation);
+    removeIfEmpty(section);
+    return moved;
+}
+
+function splitChildIntoContinuation(child, overflowRoot, continuationParent) {
+    if (child.matches('table')) {
+        return splitTable(child, overflowRoot, continuationParent);
+    }
+
+    if (child.matches('ul, ol')) {
+        return splitContainerChildren(child, overflowRoot, continuationParent, child.cloneNode(false));
+    }
+
+    if (child.classList.contains('exam-box')) {
+        return splitContainerChildren(child, overflowRoot, continuationParent, child.cloneNode(false), '.idea-line');
+    }
+
+    if (child.classList.contains('keep-together') || child.classList.contains('content-section')) {
+        return splitContainerChildren(child, overflowRoot, continuationParent, child.cloneNode(false));
+    }
+
+    return false;
+}
+
+function splitContainerChildren(source, overflowRoot, targetParent, continuation, preferredChildSelector = '') {
+    prependElement(targetParent, continuation);
+    let moved = false;
+
+    while (isVerticallyOverflowing(overflowRoot)) {
+        let candidates = preferredChildSelector
+            ? Array.from(source.children).filter((child) => child.matches(preferredChildSelector))
+            : elementChildren(source);
+
+        if (!candidates.length && preferredChildSelector) {
+            candidates = elementChildren(source);
+        }
+
+        if (!candidates.length) {
+            removeIfEmpty(continuation);
+            return moved;
+        }
+
+        const candidate = candidates[candidates.length - 1];
+        prependElement(continuation, candidate);
+        moved = true;
+
+        if (!elementChildren(source).length) {
+            source.remove();
+            break;
+        }
+    }
+
+    removeIfEmpty(continuation);
+    removeIfEmpty(source);
+    return moved;
+}
+
+function splitTable(table, overflowRoot, targetParent) {
+    const tbody = table.tBodies[0];
+    if (!tbody || tbody.rows.length < 2) {
         return false;
     }
 
-    return moved > 0;
+    const continuation = table.cloneNode(false);
+    const thead = table.tHead ? table.tHead.cloneNode(true) : null;
+    const continuationBody = document.createElement('tbody');
+
+    if (thead) {
+        continuation.appendChild(thead);
+    }
+    continuation.appendChild(continuationBody);
+    prependElement(targetParent, continuation);
+
+    let moved = false;
+    while (isVerticallyOverflowing(overflowRoot) && tbody.rows.length > 1) {
+        continuationBody.insertBefore(tbody.rows[tbody.rows.length - 1], continuationBody.firstChild);
+        moved = true;
+    }
+
+    if (!continuationBody.rows.length) {
+        continuation.remove();
+    }
+    return moved;
+}
+
+function protectTrailingOrphanHeading(page) {
+    const body = page.querySelector('.page-body');
+    if (!body) {
+        return false;
+    }
+
+    const last = lastElementChild(body);
+    if (!last) {
+        return false;
+    }
+
+    const shouldMove =
+        isHeadingElement(last) ||
+        (last.classList.contains('content-section') && hasOnlyHeading(last));
+
+    if (!shouldMove) {
+        return false;
+    }
+
+    const nextPage = getExistingContinuationPage(page);
+    if (!nextPage) {
+        return false;
+    }
+
+    const nextBody = nextPage.querySelector('.page-body');
+    prependElement(nextBody, last);
+    return true;
+}
+
+function getExistingContinuationPage(page) {
+    const sourceIndex = page.dataset.sourceIndex;
+    const next = page.nextElementSibling;
+
+    if (
+        next &&
+        next.classList.contains('topic-page') &&
+        next.dataset.sourceIndex === sourceIndex &&
+        next.dataset.generated === 'true'
+    ) {
+        return next;
+    }
+
+    return null;
 }
 
 function getOrCreateContinuationPage(page) {
@@ -223,4 +552,58 @@ function checkOverflow() {
             page.classList.add('has-overflow');
         }
     });
+}
+
+function isHeadingElement(element) {
+    return element && /^H[1-3]$/i.test(element.tagName);
+}
+
+function elementChildren(root) {
+    return Array.from(root.children);
+}
+
+function lastElementChild(root) {
+    return elementChildren(root).at(-1) || null;
+}
+
+function prependElement(parent, element) {
+    parent.insertBefore(element, parent.firstElementChild || parent.firstChild);
+}
+
+function moveAllChildren(source, target) {
+    while (source.lastChild) {
+        target.insertBefore(source.lastChild, target.firstChild);
+    }
+}
+
+function removeIfEmpty(element) {
+    if (element && !element.children.length && !element.textContent.trim()) {
+        element.remove();
+    }
+}
+
+function startsWithHeading(element) {
+    const first = elementChildren(element)[0];
+    return isHeadingElement(first);
+}
+
+function hasOnlyHeading(element) {
+    const children = elementChildren(element);
+    return children.length > 0 && children.every(isHeadingElement);
+}
+
+function canSplitElement(element) {
+    return element && (
+        element.classList.contains('content-section') ||
+        element.classList.contains('keep-together') ||
+        element.classList.contains('exam-box') ||
+        element.matches('table, ul, ol')
+    );
+}
+
+function canFitOnEmptyPage(element, body) {
+    const style = window.getComputedStyle(element);
+    const marginTop = Number.parseFloat(style.marginTop) || 0;
+    const marginBottom = Number.parseFloat(style.marginBottom) || 0;
+    return element.getBoundingClientRect().height + marginTop + marginBottom <= body.clientHeight + 1;
 }

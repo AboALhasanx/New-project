@@ -12,6 +12,11 @@
     --danger: #c93535;
     --shadow: 0 16px 45px rgba(13, 43, 69, 0.16);
     --toolbar-height: 66px;
+    --brand-dark: var(--navy);
+    --brand-mid: var(--blue);
+    --surface-alt: #f6f9fc;
+    --border: var(--line);
+    --radius-sm: 4px;
 }
 
 * {
@@ -27,7 +32,7 @@ body {
     margin: 0;
     color: var(--ink);
     background: var(--screen);
-    font-family: "Cairo", Arial, sans-serif;
+    font-family: "Noto Sans Arabic", "Cairo", Arial, sans-serif;
     font-size: 15px;
     line-height: 1.7;
 }
@@ -326,6 +331,14 @@ button:disabled {
     font-weight: 800;
 }
 
+.page-body h3 {
+    margin: 4mm 0 2mm;
+    color: var(--navy);
+    font-size: 12.5pt;
+    line-height: 1.35;
+    font-weight: 800;
+}
+
 .page-body p,
 .page-body ul,
 .page-body ol,
@@ -346,6 +359,33 @@ button:disabled {
     color: var(--blue);
     font-size: 0.72em;
     font-weight: 700;
+}
+
+.content-section {
+    break-inside: avoid;
+    page-break-inside: avoid;
+    margin-bottom: 12px;
+}
+
+.keep-together,
+.exam-box,
+blockquote,
+table {
+    break-inside: avoid;
+    page-break-inside: avoid;
+}
+
+.idea-line {
+    break-inside: avoid;
+    page-break-inside: avoid;
+    margin-bottom: 6px;
+}
+
+.content-section h1,
+.content-section h2,
+.content-section h3 {
+    break-after: avoid;
+    page-break-after: avoid;
 }
 
 .page-body ul,
@@ -399,6 +439,78 @@ button:disabled {
 .page-body code,
 .ltr {
     font-size: 0.92em;
+}
+
+.flow-line {
+    direction: rtl;
+    unicode-bidi: isolate;
+}
+
+.flow-line li,
+li.flow-line {
+    direction: rtl;
+    unicode-bidi: isolate;
+}
+
+.bit {
+    direction: ltr;
+    unicode-bidi: isolate;
+    display: inline-block;
+    font-family: "JetBrains Mono", monospace;
+    font-weight: 700;
+    color: var(--brand-dark);
+    white-space: nowrap;
+}
+
+.codeword {
+    direction: ltr;
+    unicode-bidi: isolate;
+    display: inline-block;
+    font-family: "JetBrains Mono", monospace;
+    font-weight: 700;
+    color: var(--brand-dark);
+    background: var(--surface-alt);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    padding: 0 5px;
+    white-space: nowrap;
+}
+
+.arrow {
+    direction: ltr;
+    unicode-bidi: isolate;
+    display: inline-block;
+    padding: 0 6px;
+    font-weight: 900;
+    color: var(--brand-mid);
+    white-space: nowrap;
+}
+
+.status-icon {
+    direction: ltr;
+    unicode-bidi: isolate;
+    display: inline-block;
+    padding: 0 4px;
+    font-weight: 900;
+    white-space: nowrap;
+}
+
+.symbol {
+    direction: ltr;
+    unicode-bidi: isolate;
+    display: inline-block;
+    padding: 0 3px;
+    font-family: "JetBrains Mono", monospace;
+    font-weight: 700;
+    white-space: nowrap;
+}
+
+.inline-ltr,
+.latin {
+    direction: ltr;
+    unicode-bidi: isolate;
+    display: inline-block;
+    white-space: nowrap;
 }
 
 .page-body code {
