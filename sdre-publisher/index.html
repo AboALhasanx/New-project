@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SDRE Publisher</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="css/style.css">
+    <script>
+        window.MathJax = {
+            tex: {
+                inlineMath: [['\\(', '\\)']],
+                displayMath: [['\\[', '\\]'], ['$$', '$$']],
+                processEscapes: true
+            },
+            svg: {
+                fontCache: 'global'
+            },
+            startup: {
+                typeset: false
+            }
+        };
+    </script>
+    <script defer src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-svg.js"></script>
+</head>
+<body>
+    <header class="toolbar" id="toolbar">
+        <div class="brand" aria-label="SDRE Publisher">
+            <span class="brand-mark">S</span>
+            <span class="brand-text">SDRE Publisher</span>
+        </div>
+
+        <nav class="toolbar-actions" aria-label="أدوات المشروع">
+            <button type="button" class="tool-btn" id="pagesBtn">الصفحات</button>
+            <button type="button" class="tool-btn primary" id="addPageBtn">إضافة صفحة</button>
+            <button type="button" class="tool-btn" id="promptBtn">البرومبت</button>
+            <button type="button" class="tool-btn gold" id="printBtn">طباعة الملزمة</button>
+            <button type="button" class="tool-btn" id="exportBtn">تصدير JSON</button>
+            <button type="button" class="tool-btn" id="importBtn">استيراد JSON</button>
+            <input type="file" id="importFile" accept="application/json,.json" hidden>
+        </nav>
+
+        <div class="project-pill" id="projectName">مشروع جديد</div>
+    </header>
+
+    <aside class="side-panel" id="sidePanel" aria-label="إدارة المشروع">
+        <div class="panel-head">
+            <h2>إدارة المشروع</h2>
+            <button type="button" class="icon-btn" id="closePanelBtn" aria-label="إغلاق">×</button>
+        </div>
+
+        <div class="field-group">
+            <label for="subjectInput">اسم المادة</label>
+            <input type="text" id="subjectInput" placeholder="مثال: نظم التشغيل">
+        </div>
+
+        <div class="field-group">
+            <label for="chapterInput">اسم الفصل</label>
+            <input type="text" id="chapterInput" placeholder="مثال: إدارة المعالج">
+        </div>
+
+        <div class="field-group">
+            <label for="yearInput">السنة</label>
+            <input type="text" id="yearInput" placeholder="2026">
+        </div>
+
+        <div class="panel-actions">
+            <button type="button" class="tool-btn primary full" id="panelAddPageBtn">إضافة صفحة</button>
+            <button type="button" class="tool-btn danger subtle full" id="clearLocalBtn">مسح الحفظ المحلي</button>
+        </div>
+
+        <div class="pages-section">
+            <h3>قائمة الصفحات</h3>
+            <div class="page-list" id="pageList"></div>
+        </div>
+    </aside>
+
+    <div class="panel-scrim" id="panelScrim"></div>
+
+    <main class="workspace" id="workspace">
+        <section class="book-preview" id="bookPreview" aria-label="معاينة الملزمة"></section>
+    </main>
+
+    <div class="modal-backdrop" id="pageModal" aria-hidden="true">
+        <section class="modal page-editor" role="dialog" aria-modal="true" aria-labelledby="pageModalTitle">
+            <div class="modal-head">
+                <h2 id="pageModalTitle">إضافة صفحة</h2>
+                <button type="button" class="icon-btn" id="closePageModalBtn" aria-label="إغلاق">×</button>
+            </div>
+            <div class="field-group">
+                <label for="topicInput">اسم الموضوع</label>
+                <input type="text" id="topicInput" placeholder="مثال: خوارزميات الجدولة">
+            </div>
+            <div class="field-group grow">
+                <label for="contentInput">المحتوى HTML</label>
+                <textarea id="contentInput" spellcheck="false" placeholder="<h1>عنوان الموضوع</h1>&#10;<p>اكتب محتوى الصفحة هنا...</p>"></textarea>
+            </div>
+            <div class="modal-actions">
+                <button type="button" class="tool-btn primary" id="savePageBtn">حفظ</button>
+                <button type="button" class="tool-btn" id="cancelPageBtn">إلغاء</button>
+            </div>
+        </section>
+    </div>
+
+    <div class="modal-backdrop" id="promptModal" aria-hidden="true">
+        <section class="modal prompt-modal" role="dialog" aria-modal="true" aria-labelledby="promptModalTitle">
+            <div class="modal-head">
+                <h2 id="promptModalTitle">برومبت تحويل المحتوى</h2>
+                <button type="button" class="icon-btn" id="closePromptModalBtn" aria-label="إغلاق">×</button>
+            </div>
+            <textarea id="promptText" readonly></textarea>
+            <div class="modal-actions">
+                <button type="button" class="tool-btn primary" id="copyPromptBtn">نسخ البرومبت</button>
+                <button type="button" class="tool-btn" id="cancelPromptBtn">إغلاق</button>
+            </div>
+        </section>
+    </div>
+
+    <div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+    <script src="js/state.js"></script>
+    <script src="js/storage.js"></script>
+    <script src="js/render.js"></script>
+    <script src="js/modal.js"></script>
+    <script src="js/app.js"></script>
+</body>
+</html>
