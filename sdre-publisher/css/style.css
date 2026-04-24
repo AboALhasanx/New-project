@@ -362,17 +362,21 @@ button:disabled {
 }
 
 .content-section {
-    break-inside: avoid;
-    page-break-inside: avoid;
+    break-inside: auto;
+    page-break-inside: auto;
     margin-bottom: 12px;
 }
 
 .keep-together,
-.exam-box,
 blockquote,
 table {
     break-inside: avoid;
     page-break-inside: avoid;
+}
+
+.exam-box {
+    break-inside: auto;
+    page-break-inside: auto;
 }
 
 .idea-line {
@@ -391,10 +395,14 @@ table {
 .page-body ul,
 .page-body ol {
     padding-right: 7mm;
+    break-inside: auto;
+    page-break-inside: auto;
 }
 
 .page-body li {
     margin-bottom: 1.5mm;
+    break-inside: avoid;
+    page-break-inside: avoid;
 }
 
 .page-body blockquote {

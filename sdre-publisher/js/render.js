@@ -213,6 +213,7 @@ function paginateBook() {
         page = nextTopicPage(page);
     }
 
+    removeEmptyGeneratedPages();
     updateRenderedPageNumbers();
 }
 
@@ -241,6 +242,15 @@ function moveOverflowToContinuation(page) {
         }
 
         const blockCount = elementChildren(body).length;
+
+        // إذا آخر عنصر قائمة، نقسمها بين li قبل نقل القائمة كاملة
+        if (block.matches('ul, ol')) {
+            const split = splitContainerChildren(block, body, nextBody, block.cloneNode(false));
+            if (split) {
+                moved = true;
+                continue;
+            }
+        }
 
         if (blockCount > 1) {
             prependElement(nextBody, block);
@@ -327,9 +337,19 @@ function splitContentSection(section, overflowRoot, nextBody) {
 
         const last = children[children.length - 1];
 
-        if (children.length <= 2 && startsWithHeading(section) && canSplitElement(last)) {
+        // إذا آخر عنصر داخل القسم قائمة، قسّمها بين li قبل نقلها كاملة
+        if (last.matches('ul, ol')) {
             const split = splitChildIntoContinuation(last, overflowRoot, continuation);
             moved = moved || split;
+
+            if (!split) {
+                prependElement(continuation, last);
+                moved = true;
+            }
+        } else if (children.length <= 2 && startsWithHeading(section) && canSplitElement(last)) {
+            const split = splitChildIntoContinuation(last, overflowRoot, continuation);
+            moved = moved || split;
+
             if (!split) {
                 prependElement(continuation, last);
                 moved = true;
@@ -337,6 +357,7 @@ function splitContentSection(section, overflowRoot, nextBody) {
         } else if (canSplitElement(last) && !canFitOnEmptyPage(last, overflowRoot)) {
             const split = splitChildIntoContinuation(last, overflowRoot, continuation);
             moved = moved || split;
+
             if (!split) {
                 prependElement(continuation, last);
                 moved = true;
@@ -360,12 +381,13 @@ function splitContentSection(section, overflowRoot, nextBody) {
 }
 
 function splitChildIntoContinuation(child, overflowRoot, continuationParent) {
-    if (child.matches('table')) {
-        return splitTable(child, overflowRoot, continuationParent);
-    }
-
+    // القوائم لها أولوية: دائماً نحاول تقسيمها بين li أولاً
     if (child.matches('ul, ol')) {
         return splitContainerChildren(child, overflowRoot, continuationParent, child.cloneNode(false));
+    }
+
+    if (child.matches('table')) {
+        return splitTable(child, overflowRoot, continuationParent);
     }
 
     if (child.classList.contains('exam-box')) {
@@ -524,6 +546,16 @@ function getOrCreateContinuationPage(page) {
     page.after(continuation);
 
     return continuation;
+}
+
+function removeEmptyGeneratedPages() {
+    document.querySelectorAll('.topic-page[data-generated="true"]').forEach((page) => {
+        const body = page.querySelector('.page-body');
+
+        if (body && !body.textContent.trim() && body.children.length === 0) {
+            page.remove();
+        }
+    });
 }
 
 function updateRenderedPageNumbers() {
