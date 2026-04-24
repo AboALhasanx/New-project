@@ -321,6 +321,7 @@ button:disabled {
     font-size: 21pt;
     line-height: 1.25;
     font-weight: 800;
+    text-align: center;
 }
 
 .page-body h2 {
